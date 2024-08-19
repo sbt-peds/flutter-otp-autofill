@@ -96,7 +96,7 @@ class OTPPlugin : FlutterPlugin, MethodCallHandler, PluginRegistry.ActivityResul
     private fun showNumberHint(result: Result) {
         lastResult = result
 
-        if(activity == null) return
+        if (activity == null) return
 
         // if activity is not null will build 'show hint' intent
         // on success will start showing hint
@@ -131,10 +131,17 @@ class OTPPlugin : FlutterPlugin, MethodCallHandler, PluginRegistry.ActivityResul
                     // Consent denied. User can type OTC manually.
                 }
             credentialPickerRequest -> if (resultCode == Activity.RESULT_OK && data != null) {
-                val phoneNumber =
-                    Identity.getSignInClient(context!!).getPhoneNumberFromIntent(data)
-                lastResult?.success(phoneNumber)
-                lastResult = null
+                // Check if the result is for credential picker
+                if (data.hasExtra(SmsRetriever.EXTRA_SMS_MESSAGE)) {
+                    // This is a result from the SMS consent picker
+                    val phoneNumber =
+                        Identity.getSignInClient(context!!).getPhoneNumberFromIntent(data)
+                    lastResult?.success(phoneNumber)
+                    lastResult = null
+                } else {
+                    lastResult?.error("403", "User denied consent", null)
+                    lastResult = null
+                }
             }
         }
         return true
@@ -170,7 +177,9 @@ class OTPPlugin : FlutterPlugin, MethodCallHandler, PluginRegistry.ActivityResul
         smsUserConsentBroadcastReceiver = SmsUserConsentReceiver().also {
             it.smsBroadcastReceiverListener = object : SmsUserConsentReceiver.SmsUserConsentBroadcastReceiverListener {
                 override fun onSuccess(intent: Intent?) {
-                    intent?.let { context -> activity?.startActivityForResult(context, smsConsentRequest) }
+                    intent?.let { context ->
+                        activity?.startActivityForResult(context, smsConsentRequest)
+                    }
                 }
 
                 override fun onFailure() {
